@@ -31,6 +31,7 @@ func main() {
 		numOfByte, err := conn.Read(buf)
 		CheckErr(err)
 		fmt.Println("receive server message content:" + string(buf[:numOfByte]))
+		
 	}
 
 	fmt.Println("Client program end!")
