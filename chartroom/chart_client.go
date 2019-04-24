@@ -15,6 +15,13 @@ func CheckErr(err error) {
 	}
 
 }
+func exitOS(err error) {
+	if err != nil {
+		fmt.Println("您已经退出 欢迎使用土豆通讯!")
+		os.Exit(0)
+	}
+
+}
 func main() {
 
 	conn, err := net.Dial("tcp", "127.0.0.1:8083")
@@ -29,9 +36,9 @@ func main() {
 
 	for {
 		numOfByte, err := conn.Read(buf)
-		CheckErr(err)
+		exitOS(err)
 		fmt.Println("receive server message content:" + string(buf[:numOfByte]))
-		
+
 	}
 
 	fmt.Println("Client program end!")
@@ -54,9 +61,8 @@ func MessageSend(conn net.Conn) {
 			break
 
 		}
-		
 
-		_,err:=conn.Write([]byte(input))
+		_, err := conn.Write([]byte(input))
 		if err != nil {
 			fmt.Println("client connect failure: " + err.Error())
 			break

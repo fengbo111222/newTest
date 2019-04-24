@@ -3,8 +3,14 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"strings"
+)
+
+const (
+	LOG_DIRECTORY = "./test.log"
 )
 
 // 消息队列，带缓存的buf
@@ -12,8 +18,23 @@ var mesgque = make(chan string, 1000)
 
 var quitChan = make(chan bool)
 
+var logger *log.Logger
+var logFile *os.File
+
 //存储客户端链接映射
 var onlinesConns = make(map[string]net.Conn)
+
+func init() {
+
+	logFile, err := os.OpenFile(LOG_DIRECTORY, os.O_RDWR|os.O_CREATE, 0)
+	if err != nil {
+		fmt.Println("log file create failure!")
+		os.Exit(-1)
+	}
+
+	logger=log.New(logFile, "\r\n", log.Ldate|log.Ltime|log.Llongfile)
+
+}
 
 func CheckErr(err error) {
 	if err != nil {
@@ -22,13 +43,14 @@ func CheckErr(err error) {
 
 }
 func main() {
+	defer logFile.Close()
 	// 监听socket本地8080端口
 	lis_socket, err := net.Listen("tcp", "127.0.0.1:8083")
 	CheckErr(err)
 	defer lis_socket.Close()
 
 	fmt.Println("Service is waiting......")
-
+	logger.Println("i am here")
 	go ConsumeMessage()
 
 	for {
@@ -44,7 +66,6 @@ func main() {
 			fmt.Println(i)
 
 		}
-		go ProcessInfo(conn)
 
 		//如果有客户端链接，则打开一个协程处理
 		go ProcessInfo(conn)
@@ -74,7 +95,7 @@ func doProcessMessage(message string) {
 	contents := strings.Split(message, "#")
 	if len(contents) > 1 {
 		addr := contents[0]
-		sendMesg := contents[1]
+		sendMesg := strings.Join(contents[1:], "#") //防止传输的消息体也有#
 		addr = strings.Trim(addr, " ")
 		//通过map查看是否有客户端，没有则不能发送
 		if conn, ok := onlinesConns[addr]; ok {
@@ -85,8 +106,27 @@ func doProcessMessage(message string) {
 			}
 
 		}
-	}
+	} else {
+		contents := strings.Split(message, "*")
+		if strings.ToUpper(contents[1]) == "LIST" {
+			ips := ""
+			for i := range onlinesConns {
 
+				ips = ips + "|" + i
+
+			}
+			if conn, ok := onlinesConns[contents[0]]; ok {
+
+				_, err := conn.Write([]byte(ips))
+				if err != nil {
+					fmt.Println("online conns send failure!")
+				}
+
+			}
+
+		}
+
+	}
 }
 
 // 负责接收协程
@@ -94,7 +134,13 @@ func doProcessMessage(message string) {
 func ProcessInfo(conn net.Conn) {
 
 	buf := make([]byte, 1024)
-	defer conn.Close()
+	defer func() {
+
+		addr := fmt.Sprintf("%s", conn.RemoteAddr())
+		delete(onlinesConns, addr)
+
+		conn.Close()
+	}()
 
 	for {
 
