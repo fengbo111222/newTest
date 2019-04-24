@@ -55,6 +55,7 @@ func MessageSend(conn net.Conn) {
 
 		}
 		
+
 		_,err:=conn.Write([]byte(input))
 		if err != nil {
 			fmt.Println("client connect failure: " + err.Error())
